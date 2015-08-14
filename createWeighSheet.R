@@ -92,10 +92,10 @@ createWeighSheet <- function() {
   # Open existing data file
   dataFileName <- paste('ARDEC_Soil_N_', as.character(year), sep = '')
   defaultDataFile <- paste(path, dataFileName, fileExt, sep = '')
-  dataSheet2 <- read.xlsx2(defaultDataFile, sheetIndex = 2,
+  colClassSheet <- read.xlsx2(defaultDataFile, sheetIndex = 2,
                            stringsAsFactors = FALSE)
-  colClassVector <- dataSheet2[, 2]
-  names(colClassVector) <- dataSheet2[, 1]
+  colClassVector <- colClassSheet[, 2]
+  names(colClassVector) <- colClassSheet[, 1]
   # Now read worksheet 1, using colClassVector
   dataSheet <- read.xlsx2(defaultDataFile, sheetIndex = 1,
                           colClasses = colClassVector, stringsAsFactors = FALSE)
@@ -267,7 +267,7 @@ createWeighSheet <- function() {
   cat('\n\n...done.')
 }
 
-# This function responds to invalid inputs
+# This function handles fatal errors with message output
 errorHandler <- function (errorMessage) {
   cat('\n\n', errorMessage, '\n')
   stop('Program halted', call. = FALSE)
