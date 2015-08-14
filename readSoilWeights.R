@@ -4,6 +4,8 @@
 #
 ################################################################################
 
+# Test edit
+
 # Establish default folder for soil weights
 soilWeightFiles <- Sys.glob(paste('V:/Halvorson/ADHLab/Soil Weights/',
                                   '2015 Soil Weights/',
