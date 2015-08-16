@@ -68,19 +68,19 @@ readSoilWeights <- function() {
   # Print status message
   cat('\n\n...merging soil weights with data...')  
 
-
   # A better approach may be to rename the second column in soilWeightDF as
   # 'newWeight' for example.  Then merge both dfs on labNum, and then manipulate
-  # the merged df such that newWeight values replace blank labWeight slots.
-  # Simply renaming newWeight as labWeight in the merged df can cause existing
-  # weights to be lost.
-  #
+  # the merged df such that newWeight values replace blank labWeight slots,
+  # first checking for conflicts (i.e., two different weights for same labNum).
+  mergedDF <- merge(dataSheet, soilWeightDF, by = 'labNum')
+
+  
+    #
   # Add weight values to soil file by matching lab numbers
   #mergedDF <- merge(dataSheet, soilWeightDF, by = c('labNum', 'labWeight'))
   
   # Output status message
   cat('\n\n...saving updated soil file...')
-  
   
   # Rewrite the following lines to parse dataFileName and add ' - Updated'
   # before saving updated file.
