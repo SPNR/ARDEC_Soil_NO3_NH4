@@ -21,6 +21,9 @@ readSoilWeights <- function() {
   
   # Convert soil data file to data frame
   #
+  # Package xlsx provides read/write functions for xls and xlsx files
+  library(xlsx)
+  #
   # Sheet 2 lists the classes for each column on sheet 1
   colClassSheet <- read.xlsx2(dataFileName, sheetIndex = 2,
                            stringsAsFactors = FALSE)
@@ -64,51 +67,57 @@ readSoilWeights <- function() {
   soilWeightDF <- na.omit(soilWeightDF)
   # Provide descriptive column names
   names(soilWeightDF) <- c('labNum', 'labWeight')
-  
-  # Print status message
-  cat('\n\n...merging soil weights with data...')  
 
-  # A better approach may be to rename the second column in soilWeightDF as
-  # 'newWeight' for example.  Then merge both dfs on labNum, and then manipulate
-  # the merged df such that newWeight values replace blank labWeight slots,
-  # first checking for conflicts (i.e., two different weights for same labNum).
-  mergedDF <- merge(dataSheet, soilWeightDF, by = 'labNum')
-
-  
-    #
-  # Add weight values to soil file by matching lab numbers
-  #mergedDF <- merge(dataSheet, soilWeightDF, by = c('labNum', 'labWeight'))
+  # Find number of rows in soilWeightDF
+  weightRows <- nrow(soilWeightDF)
+  # Initialize object to record matchless lab numbers
+  missingNums <- integer()
+  # For each row in soilWeightDF...
+  for(weightRow in 1:weightRows) {
+    # ... find row in dataSheet matching current labNum
+    dataRow <- which(dataSheet$labNum == soilWeightDF$labNum[weightRow])
+    # If no such row exists then record current labNum
+    if(length(dataRow) == 0) {
+      missingNums <- c(missingNums, soilWeightDF$labNum[weightRow])
+    # Otherwise copy labWeight to dataSheet for current labNum  
+    } else {
+      dataSheet$labWeight[dataRow] <- soilWeightDF$labWeight[weightRow]
+    }
+  }
   
   # Output status message
   cat('\n\n...saving updated soil file...')
   
-  # Rewrite the following lines to parse dataFileName and add ' - Updated'
-  # before saving updated file.
-  #
   # Create new soil file name
-  filename <- paste(path, "Data File - Updated", fileExt, sep = '')
-  
+  #
+  # Position of character preceding '.'
+  nameEndPos <- nchar(dataFileName) - nchar(fileExt)
+  # Data file name with dot and extension removed
+  nameEnd <- substr(dataFileName, start = 1, stop = nameEndPos)
+  # Insert ' - Updated' at end of modified data file name, and reattach fileExt
+  filename <- paste(nameEnd, ' - Updated', fileExt, sep = '')
+
   # Write new soil file
-  write.xlsx2(mergedDF, file = filename, showNA = FALSE, row.names = FALSE)
+  write.xlsx2(dataSheet, file = filename, showNA = FALSE, row.names = FALSE)
   
   # Output status message
   cat('\n\n...done.')
   
+  # Display list of lab numbers that didn't appear in dataSheet
+  if(length(missingNums) != 0) {
+    missingNums <- sort(missingNums)
+    cat('\n\nLab number(s) not found in data sheet:\n\n', missingNums)
+  }
 }
 
-
+################################################################################
+#
 # This function handles fatal errors with message output
+#
+################################################################################
+
 errorHandler <- function (errorMessage) {
   cat('\n\n')
   fullMessage <- paste(errorMessage, '. Program halted.', sep = '')
   stop(fullMessage, call. = FALSE)
 }
-
-
-
-
-################################################################################
-
-## Example expression to access the 157th element of the X2 column of the 2nd
-## data frame in soilWeightList:
-# soilWeightList[[2]]$X2[157]
