@@ -2,6 +2,10 @@
 #
 #  Exploratory data analysis for ARDEC soil
 #
+# Multiple samplings of a given study occur during a given year, so the user
+# must appropriately subset the data of interest!
+#
+#
 ################################################################################
 
 # Spawn file chooser for user to select appropriate soil file
@@ -57,7 +61,7 @@ dataSheet$trtLevel <- paste('N treatment level',
 
 # Subset by study/suffix (exluding SCS from this summary)
 stCC  <- subset(dataSheet, study == 'Strip Till' & plotSuffix == 'CC')
-stSSC <- subset(dataSheet, study == 'Strip Till' & plotSuffix == 'SS/C')
+stSSC <- subset(dataSheet, study == 'Strip Till' & plotSuffix == 'SS-C')
 dmp  <- subset(dataSheet, study == 'DMP')
 r1E  <- subset(dataSheet, study == 'Rotation 1' & plotSuffix == 'E')
 r1W  <- subset(dataSheet, study == 'Rotation 1' & plotSuffix == 'W')
@@ -68,11 +72,9 @@ r4  <- subset(dataSheet, study == 'Rotation 4')
 r5E  <- subset(dataSheet, study == 'Rotation 5' & plotSuffix == 'E')
 r5W  <- subset(dataSheet, study == 'Rotation 5' & plotSuffix == 'W')
 
-
-
 # In each subset, create column 'fullStudy' that is a concatenation of plot name
-# and plot suffix.  If no suffix exists, it consists only of plot name.  This
-# provides consistency in plotting among datasubsets.
+# and plot suffix.  If no suffix exists, it consists only of plot names.  This
+# provides consistency in plotting among data subsets.
 #
 # Specify no suffixes for these studies
 studyOnlyList <- list(dmp = dmp, r3 = r3, r4 = r4)
@@ -104,8 +106,8 @@ dmp$trtLevel <- paste('N source type:', dmp$trtType1)
 # This list will have a different order than the commented alternative below
 #subsetList <- list(studyOnlyList, studySfxList)
 
- subsetList <- list(stCC = stCC, stSSC = stSSC, dmp = dmp, r1E = r1E, r1W = r1W,
-                    r2E = r2E, r2W = r2W, r3 = r3, r4 = r4, r5E = r5E, r5W = r5W)
+subsetList <- list(stCC = stCC, stSSC = stSSC, dmp = dmp, r1E = r1E, r1W = r1W,
+                  r2E = r2E, r2W = r2W, r3 = r3, r4 = r4, r5E = r5E, r5W = r5W)
 
 library(ggplot2)
 
@@ -128,6 +130,7 @@ lapply(subsetList, function(df) {
   g1
   
 })
+
 
 
 # Script ends here
