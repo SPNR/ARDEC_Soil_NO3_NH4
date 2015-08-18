@@ -33,6 +33,18 @@ readSoilWeights <- function() {
   dataSheet <- read.xlsx2(dataFileName, sheetIndex = 1,
                           colClasses = colClassVector, stringsAsFactors = FALSE)
   
+  # Check for duplicate lab numbers in dataSheet by first creating an NA-free
+  # copy of dataSheet$labNum
+  dupTestVector <- na.omit(dataSheet$labNum)
+  # The object 'dups' is a logical vector
+  dups <- duplicated(dupTestVector)
+  # Create a vector of indices
+  dupIndices <- which(dups)
+  # If duplicates are present then throw a fatal error
+  if(length(dupIndices) > 1) {
+    errorHandler(cat('Duplicate lab number(s) present in soil data file:',
+                     dataSheet$labNum[dupIndices]))
+  
   # Prompt user to select a folder that contains soil weight files
   promptInput <-
     readline(
@@ -67,6 +79,15 @@ readSoilWeights <- function() {
   soilWeightDF <- na.omit(soilWeightDF)
   # Provide descriptive column names
   names(soilWeightDF) <- c('labNum', 'labWeight')
+  # Check for duplicate lab numbers in soilWeightDF
+  dups <- NULL  # This object name was used above
+  dups <- duplicated(soilWeightDF$labNum)
+  dupIndices <- which(dups)
+  # If duplicates are present then throw a fatal error
+  if(length(dupIndices) > 1) {
+    errorHandler(cat('Duplicate lab number(s) present in soil weight files:',
+                     soilWeightDF$labNum[dupIndices]))
+  }
 
   # Find number of rows in soilWeightDF
   weightRows <- nrow(soilWeightDF)
@@ -94,7 +115,7 @@ readSoilWeights <- function() {
   nameEndPos <- nchar(dataFileName) - nchar(fileExt)
   # Data file name with dot and extension removed
   nameEnd <- substr(dataFileName, start = 1, stop = nameEndPos)
-  # Insert ' - Updated' at end of modified data file name, and reattach fileExt
+  # Insert ' - Updated' at end of file name, and reattach fileExt
   filename <- paste(nameEnd, ' - Updated', fileExt, sep = '')
 
   # Write new soil file
