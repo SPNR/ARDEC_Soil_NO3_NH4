@@ -34,7 +34,7 @@ createWeighSheet <- function() {
     if(pltsfxNum == '2') pltsfx <- 'W'
     if(is.na(pltsfx)) errorHandler('Invalid selection')
     
-    # Prompt user for CC or SS-C if applicable  
+  # Prompt user for CC or SS-C if applicable  
   }else if (stNum == '6') {
     cat('Choose a suffix:\n')
     cat('\n\t1. CC\n\t2. SS-C')
@@ -44,7 +44,16 @@ createWeighSheet <- function() {
     if(is.na(pltsfx)) errorHandler('Invalid selection')
   }
   
-  # Prompt user for additional input.
+  # Prompt user for maximum soil depth. (Use cat for text color consistency.)
+  maxDepth <- cat (
+    '\n\nSelect maximum depth sampled (feet, whole number only):  ')
+  readline()
+  # Convert to numeric
+  maxDepth <- as.numeric(maxDepth)
+  # If selection is invalid then throw an error
+  if(maxDepth != 1 & maxDepth != 2 & maxDepth != 3 & maxDepth != 4 &
+       maxDepth != 5 & maxDepth != 6) errorHandler ('Invalid selection')
+    
   # Will add 'autonumber all' feature in the future.
   #  auto <- as.character(readline('Autonumber all remaining studies? (Y/N)  '))
   
@@ -65,7 +74,7 @@ createWeighSheet <- function() {
   startNum <-
     as.integer(readline('Starting lab number? (<ENTER> for autonumbering)  '))
   templatePrompt <-
-    readline('\n\nPress <ENTER> to select a weigh sheet template file... ')
+    readline('\n\nPress <ENTER> to select a soil template file... ')
   
   # Spawn file chooser to have user select a template file from which to build
   # the weigh sheet
@@ -124,6 +133,9 @@ createWeighSheet <- function() {
     weighSheet <- weighSheet[order(weighSheet$plotNumber,
                                    weighSheet$depthTop), ]
   }
+  
+  # If max depth is less than 6 feet then subset appropriate rows
+  if(maxDepth < 6) weighSheet <- weighSheet[depthBottom <= maxDepth * 12, ]
   
   # Check for duplicate sampling events
   dupCheckSub <- subset(dataSheet, study == st)
