@@ -42,7 +42,7 @@ readLachatOutput <- function() {
   
   # Initialize data frame to contain soil check results
   checkValues <- data.frame(labNum = character(0), rawNO3NO2 = numeric(0),
-                            rawNH4 = numeric(0), runDate)
+                            rawNH4 = numeric(0), runDate = numeric(0))
   
   # Search for keywords in Omnion sample names, one row at a time
   for(i in 1:nrow(tableClean)) {
@@ -52,8 +52,8 @@ readLachatOutput <- function() {
     if(grepl('CHECK', tableClean[i, 1])) {
       checkValues <- rbind(checkValues, c(tableClean$rawNO3NO2[i],
                                           tableClean$rawNH4[i]))   
-    # Else if current name contains '1:' then extract the dilution value and
-    # lab number
+      # Else if current name contains '1:' then extract the dilution value and
+      # lab number
     }else if(grepl('1:', tableClean$labNum[i])) {
       # Character position of dilution value
       dilPos <- regexpr('1:', tableClean$labNum[i])
@@ -65,16 +65,16 @@ readLachatOutput <- function() {
       labNumText <- substring(tableClean$labNum[i], first = 1,
                               last = dilPos - 2)
       # Transform labNumText into a numeric value
-#       tableClean$labNum[i] <- suppressWarnings(
-#         as.numeric(paste(unlist(labNumText), collapse = '')))
+      #       tableClean$labNum[i] <- suppressWarnings(
+      #         as.numeric(paste(unlist(labNumText), collapse = '')))
       tableClean$labNum[i] <- suppressWarnings(as.numeric(labNumText))
-     
+      
       # If current dilution or labNum is NA then print error message
       if(is.na(tableClean$dilution[i]) | is.na(tableClean$labNum[i])) {
         cat("** Invalid dilution value or lab number at sample",
             tableClean$labNum[i])
         cat('\n** This observation will be excluded from data summary!\n\n')
-      # If this diluted sample is still out of range then exclude it  
+        # If this diluted sample is still out of range then exclude it  
       }else if(tableClean$rawNO3NO2[i] > 20 | tableClean$rawNH4[i] > 4){
         cat('Diluted sample', tableClean$labNum[i], 'still out of range')
         cat('\n** This observation will be excluded from data summary!\n\n')
@@ -95,19 +95,21 @@ readLachatOutput <- function() {
         tableClean$keep[i] <- TRUE
       }
       
-    # Else (not a valid check, dilution or sample)      
+      # Else (not a valid check, dilution or sample)      
     }else{
       cat('** Unreadable sample description at row', i)
       cat('\n** This observation will be excluded from data summary!\n\n')
     }
-
-    # Identify results with a single out-of-range value, as the corresponding
-    # in-range value will be take the place of the diluted in-range value
-    if(tableClean$rawNO3NO2[i] > 20 &
-       tableClean$rawNH4[i] <= 4) tableClean$hiVal[i] <- 'hiNO3NO2'
-    if(tableClean$rawNO3NO2[i] <= 20 &
-       tableClean$rawNH4[i] > 4) tableClean$hiVal[i] <- 'hiNH4'
-
+    
+    if(tableClean$keep[i] == TRUE) {
+      # Identify results with a single out-of-range value, as the corresponding
+      # in-range value will be take the place of the diluted in-range value
+      if(tableClean$rawNO3NO2[i] > 20 &
+           tableClean$rawNH4[i] <= 4) tableClean$hiVal[i] <- 'hiNO3NO2'
+      if(tableClean$rawNO3NO2[i] <= 20 &
+           tableClean$rawNH4[i] > 4) tableClean$hiVal[i] <- 'hiNH4'
+    }  # End if-statement
+    
   }  # End for-loop
   
   # Simplify tableClean by subsetting only rows marked to keep
@@ -119,7 +121,7 @@ readLachatOutput <- function() {
   okValRows <- which(is.na(tableClean$hiVal))
   # Indices of rows having out-of-range values, but no corresponding dilutions
   noDilRows <- numeric(0)
-
+  
   # For each hiVal row
   for(hiValRow in hiValRows) {
     # Identify labNum of current row
@@ -127,29 +129,29 @@ readLachatOutput <- function() {
     # Find labNum of the row with ok values that matches the labNum of the
     # current hiVal row.  The former should be a dilution.
     labNumMatchRows <- which(tableClean$labNum[okValRows] %in% currentLabNum)
-
+    
     # If multiple in-range dilutions share the same lab number then throw an
     # error.  No out-of-range dilutions (underdilutions) should occur here
     # because they were filtered out in the previous for-loop
     if(length(labNumMatchRows > 1)) {
       fatalError (cat('Multiple dilutions with lab number', currentLabNum))
-    # Else if current hiVal sample has no corresponding dilution then exclude
-    # current row
-    }else if(length(labNumMatchRows = 0)) {
+      # Else if current hiVal sample has no corresponding dilution then exclude
+      # current row
+    }else if(length(labNumMatchRows == 0)) {
       tableClean$keep(hiValRow) == FALSE
       # Add this row to noDilRows
       noDilRows <- c(noDilRows, tableClean$labNum[hiValRow])
-    # Else a single match exists: length(labNumMatchRows) = 1
+      # Else a single match exists: length(labNumMatchRows) = 1
     }else{
       # Check expected dilution for presence of dilution ratio
-      if(is.na(tableClean$dilution[labNumMatchRows])) fatalError(
-        'Dilution ratio not found for lab number', tableClean$labNum[hiValRow])
+      if(is.na(tableClean$dilution[labNumMatchRows])) fatalError(cat(
+        'Dilution ratio not found for lab number', tableClean$labNum[hiValRow]))
       # If hiVal is an ammonium... 
       if(tableClean$hiVal[hiValRow] == 'hiNH4') {
         # ... then retain the original nitrate/nitrite value
         tableClean$rawNO3NO2[labNumMatchRows] <-
           tableClean$rawNO3NO2[hiValRow]
-      # Else if hiVal is a nitrate/nitrite...
+        # Else if hiVal is a nitrate/nitrite...
       }else if(tableClean$hiVal[hiValRow] == 'hiNO3NO2') {
         # ... then retain original ammonium value
         tableClean$rawNH4[labNumMatchRows] <-
@@ -158,8 +160,9 @@ readLachatOutput <- function() {
       # Label current row for deletion
       tableClean$keep[hiValRow] <- FALSE
     }
-  }
-
+    
+  }  # End for-loop
+  
   # Check for negative measured values, and set those observations to
   # keep = FALSE
   negValRows <- which(tableClean$rawNO3NO2 < 0 | tableClean$rawNH4 < 0)
@@ -174,7 +177,7 @@ readLachatOutput <- function() {
   firstDupRow <- anyDuplicated(keepRows$labNum)
   if(firstDupRow > 0 ) {
     fatalError(cat('** More than one instance of lab number',
-                     keepRows$labNum[firstDupRow]))
+                   keepRows$labNum[firstDupRow]))
   }
   
   # Subset rows for final table
@@ -196,7 +199,8 @@ readLachatOutput <- function() {
   # Define default soil file path and name
   path <- 'W:/R/SPNR/spnr tables/'
   fileExt <- '.xlsx'
-  defaultDataFile <- paste(path, 'ARDEC_Soil_N_', sampleYear, fileExt, sep = '')
+  defaultDataFile <- paste(path, 'ARDEC_Soil_N_', sampleYear, '_test', fileExt,
+                           sep = '')
   
   # Prompt user to select a soil data file
   promptInput <-
