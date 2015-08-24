@@ -11,7 +11,7 @@ createWeighSheet <- function() {
   cat('Choose a study:\n')
   cat('\n\t1. Rotation 1\n\t2. Rotation 2\n\t3. Rotation 3\n\t4. Rotation 4')
   cat('\n\t5. Rotation 5\n\t6. Strip Till\n\t7. DMP')
-  stNum <- readline('\n\n\     ? ')
+  stNum <- readline('\n\     ? ')
   st <- NA_character_
   if(stNum == '1') st <- 'Rotation 1'
   if(stNum == '2') st <- 'Rotation 2'
@@ -20,48 +20,51 @@ createWeighSheet <- function() {
   if(stNum == '5') st <- 'Rotation 5'
   if(stNum == '6') st <- 'Strip Till'
   if(stNum == '7') st <- 'DMP'
-  if(is.na(st)) errorHandler('Invalid selection')
+  if(is.na(st)) fatalError('Invalid selection')
   
   # Initialize plot suffix as NA
   pltsfx <- NA_character_
   
   # Prompt user for E or W suffix if applicable
   if(stNum == '1' | stNum == '2' | stNum == '5') {
-    cat('Choose a suffix:\n')
+    cat('\nChoose a suffix:\n')
     cat('\n\t1. East\n\t2. West')
-    pltsfxNum <- readline('\n\n     ? ')
+    pltsfxNum <- readline('\n     ? ')
     if(pltsfxNum == '1') pltsfx <- 'E'
     if(pltsfxNum == '2') pltsfx <- 'W'
-    if(is.na(pltsfx)) errorHandler('Invalid selection')
+    if(is.na(pltsfx)) fatalError('Invalid selection')
     
   # Prompt user for CC or SS-C if applicable  
   }else if (stNum == '6') {
-    cat('Choose a suffix:\n')
+    cat('\nChoose a suffix:\n')
     cat('\n\t1. CC\n\t2. SS-C')
-    pltsfxNum <- readline('\n\n     ? ')
+    pltsfxNum <- readline('\n     ? ')
     if(pltsfxNum == '1') pltsfx <- 'CC'
     if(pltsfxNum == '2') pltsfx <- 'SS-C'
-    if(is.na(pltsfx)) errorHandler('Invalid selection')
+    if(is.na(pltsfx)) fatalError('Invalid selection')
   }
   
   # Prompt user for maximum soil depth. (Use cat for text color consistency.)
-  maxDepth <- cat (
-    '\n\nSelect maximum depth sampled (feet, whole number only):  ')
-  readline()
+  cat ('\nEnter maximum depth sampled, in feet
+       (whole number only, or "0" for top foot composite):  ')
+  maxDepth <- readline('\n\     ? ')
   # Convert to numeric
   maxDepth <- as.numeric(maxDepth)
+  
   # If selection is invalid then throw an error
   if(maxDepth != 1 & maxDepth != 2 & maxDepth != 3 & maxDepth != 4 &
-       maxDepth != 5 & maxDepth != 6) errorHandler ('Invalid selection')
+       maxDepth != 5 & maxDepth != 6 & maxDepth != 0) fatalError (
+                                                        'Invalid selection')
     
   # Will add 'autonumber all' feature in the future.
   #  auto <- as.character(readline('Autonumber all remaining studies? (Y/N)  '))
   
   # Prompt user for sampling date
-  textDate <- readline('Enter sampling date (mm-dd-yyyy)  ')
+  cat('\nEnter sampling date (mm-dd-yyyy):')
+  textDate <- readline('\n\     ? ')
   # Test for valid date
   dateTest <- as.Date(textDate, '%m-%d-%Y')
-  if(is.na(dateTest)) errorHandler('Invalid date')
+  if(is.na(dateTest)) fatalError('Invalid date')
   
   # Split textDate on non-digit characters, giving three strings
   dateList <- strsplit(textDate, '[^0-9]')
@@ -70,11 +73,23 @@ createWeighSheet <- function() {
   day <- as.integer(dateList[[1]][2])
   year <- as.integer(dateList[[1]][3])
   
+  # Determine sampling season for weighSheet title
+  if(month >= 3 & month <= 5) {
+    season <- 'Spring'
+  } else if(month >= 6 & month <= 8) {
+    season <- 'Summer'
+  } else if(month >= 9 & month <= 11) {
+    season <- 'Fall'
+  } else {
+    season <- 'Winter'
+  }
+  
   # Prompt user for starting lab number
-  startNum <-
-    as.integer(readline('Starting lab number? (<ENTER> for autonumbering)  '))
-  templatePrompt <-
-    readline('\n\nPress <ENTER> to select a soil template file... ')
+  cat('\n\nStarting lab number? (<ENTER> for autonumbering)  ')
+  startNum <- as.integer(readline('\n\     ? '))
+  cat('\n\nPress <ENTER> to select a soil template file... ')
+  templatePrompt <- readline()
+  if(templatePrompt != '') fatalError('Invalid selection')
   
   # Spawn file chooser to have user select a template file from which to build
   # the weigh sheet
@@ -99,7 +114,8 @@ createWeighSheet <- function() {
                               stringsAsFactors = FALSE)
   
   # Open existing data file
-  dataFileName <- paste('ARDEC_Soil_N_', as.character(year), sep = '')
+  dataFileName <- paste('ARDEC_Soil_N_', as.character(year), '_test',
+                        sep = '')
   defaultDataFile <- paste(path, dataFileName, fileExt, sep = '')
   colClassSheet <- read.xlsx2(defaultDataFile, sheetIndex = 2,
                            stringsAsFactors = FALSE)
@@ -135,15 +151,22 @@ createWeighSheet <- function() {
   }
   
   # If max depth is less than 6 feet then subset appropriate rows
-  if(maxDepth < 6) weighSheet <- weighSheet[depthBottom <= maxDepth * 12, ]
-  
+  if(maxDepth < 6 & maxDepth > 0) weighSheet <-
+    weighSheet[weighSheet$depthBottom <= maxDepth * 12, ]
+  # A zero value of maxDepth indicates a composite sample of the top 12 inches
+  if(maxDepth == 0) {
+    # Subset 0 to 3 inches
+    weighSheet <- weighSheet[weighSheet$depthBottom == 3, ]
+    # Establish a 0-12 inch increment
+    weighSheet$depthBottom <- 12
+  }
   # Check for duplicate sampling events
   dupCheckSub <- subset(dataSheet, study == st)
   if(!is.na(pltsfx) & st != 'DMP') dupCheckSub <- subset(dupCheckSub,
                                                          plotSuffix = pltsfx)
   if(dupCheckSub[1, 'sampDay'] == day & dupCheckSub[1, 'sampMonth'] == month &
        dupCheckSub[1, 'sampYear'] == year) {
-    errorHandler(paste('Duplicate sampling event exists on', textDate,
+    fatalError(paste('Duplicate sampling event exists on', textDate,
                        'for specified study.'))
   }
   
@@ -169,12 +192,12 @@ createWeighSheet <- function() {
   # Halt script if duplicates are detected
   if(length(dupIndices) > 0) {
     dups <- numVec[dupIndices]
-    errorHandler(paste('The following lab numbers already exist in the', year,
+    fatalError(paste('The following lab numbers already exist in the', year,
                  'data file:\n', dups, '\n** Program halted. **'))
   }
   
   # If no rows match input criteria then halt script with an error message
-  if(nrow(weighSheet) == 0) errorHandler(
+  if(nrow(weighSheet) == 0) fatalError(
     'No match in soil file.  Check input values.')
   
   # Output status message
@@ -214,7 +237,8 @@ createWeighSheet <- function() {
   
   # Create weigh file name
   if(is.na(pltsfx)) pltsfx <- ''
-  weighFileName <- paste(path, st, pltsfx, ' soil weigh sheet.xlsx', sep = '')
+  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, pltsfx,
+                         ' soil weigh sheet.xlsx', sep = '')
   # Create a workbook for the weigh sheet
   weighSheetWB <- createWorkbook()
   # Create a worksheet
@@ -238,17 +262,6 @@ createWeighSheet <- function() {
     setCellStyle(sheetTitle[[1,1]], titleStyle)
   }
   
-  # Determine sampling season for weighSheet title
-  if(month >= 3 & month <= 5) {
-    season <- 'Spring'
-  } else if(month >= 6 & month <= 8) {
-    season <- 'Summer'
-  } else if(month >= 9 & month <= 11) {
-    season <- 'Fall'
-  } else {
-    season <- 'Winter'
-  }
-  
   # Create main title
   titleText <- paste(year, ' ', season, ',', sep = '' )
   titleText <- paste(titleText, 'ARDEC', st, pltsfx)
@@ -268,19 +281,22 @@ createWeighSheet <- function() {
   saveWorkbook(weighSheetWB, weighFileName)
   
   # Output status message
-  cat('\n\n...saving updated soil file...')
+  cat('\n\n...updating soil file...')
   
   # Create new soil file name
-  filename <- paste(path, dataFileName, " - Updated", fileExt, sep = '')
+  filename <- paste(path, dataFileName, fileExt, sep = '')
   # Write new soil file
-  write.xlsx2(dataSheetNew, file = filename, showNA = FALSE, row.names = FALSE)
+  write.xlsx2(dataSheetNew, file = filename, sheetName = 'Data',
+              showNA = FALSE, row.names = FALSE)
+  write.xlsx2(templateSheet2, file = filename, sheetName = 'Columns',
+              showNA = FALSE, row.names = FALSE, append = TRUE)
   
   # Output status message
   cat('\n\n...done.')
 }
 
 # This function handles fatal errors with message output
-errorHandler <- function (errorMessage) {
+fatalError <- function (errorMessage) {
   cat('\n\n', errorMessage, '\n')
   stop('Program halted', call. = FALSE)
 }
