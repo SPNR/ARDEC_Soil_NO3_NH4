@@ -40,9 +40,9 @@ readLachatOutput <- function() {
   tableClean$hiVal <- NA_character_
   tableClean$keep <- FALSE
   
-  # Initialize objects for upcoming for-loop
+  # Initialize data frame to contain soil check results
   checkValues <- data.frame(labNum = character(0), rawNO3NO2 = numeric(0),
-                            rawNH4 = numeric(0))
+                            rawNH4 = numeric(0), runDate)
   
   # Search for keywords in Omnion sample names, one row at a time
   for(i in 1:nrow(tableClean)) {
@@ -60,22 +60,24 @@ readLachatOutput <- function() {
       # Read dilution value
       tableClean$dilution[i] <- suppressWarnings(
         as.numeric(substring(tableClean$labNum[i], dilPos + 2)))
-      # Parse previous characters to extract corresponding lab number
-      prevChars <- substring(tableClean$labNum[i], first = 1, last = dilPos - 1)
-      # Acquire lab number as text. (Split function outputs a list.)
-      labNumText <- split(prevChars, 'SAMPLE')
+      # Parse previous characters to extract lab number.  Sample
+      # descriptor is assumed to be of the form "1234 1:8"
+      labNumText <- substring(tableClean$labNum[i], first = 1,
+                              last = dilPos - 2)
       # Transform labNumText into a numeric value
-      tableClean$labNum[i] <- suppressWarnings(
-        as.numeric(paste(unlist(labNumText), collapse = '')))
+#       tableClean$labNum[i] <- suppressWarnings(
+#         as.numeric(paste(unlist(labNumText), collapse = '')))
+      tableClean$labNum[i] <- suppressWarnings(as.numeric(labNumText))
+     
       # If current dilution or labNum is NA then print error message
       if(is.na(tableClean$dilution[i]) | is.na(tableClean$labNum[i])) {
-        cat("** Invalid dilution value or lab number at row", i)
+        cat("** Invalid dilution value or lab number at sample",
+            tableClean$labNum[i])
         cat('\n** This observation will be excluded from data summary!\n\n')
       # If this diluted sample is still out of range then exclude it  
       }else if(tableClean$rawNO3NO2[i] > 20 | tableClean$rawNH4[i] > 4){
-        cat('Diluted sample still out of range')
-        
-        # ************ invoke exclusion error here *******************
+        cat('Diluted sample', tableClean$labNum[i], 'still out of range')
+        cat('\n** This observation will be excluded from data summary!\n\n')
       }else{
         tableClean$keep[i] <- TRUE
       }
@@ -88,67 +90,76 @@ readLachatOutput <- function() {
       if(is.na(tableClean$labNum[i])) {
         cat("** Invalid lab number at row", i)
         cat('\n** This observation will be excluded from data summary!\n\n')
-      } else {
+      }else{
         # Otherwise keep this row
         tableClean$keep[i] <- TRUE
       }
       
-      # Else (not a valid check, dilution or sample)      
-    } else {
+    # Else (not a valid check, dilution or sample)      
+    }else{
       cat('** Unreadable sample description at row', i)
       cat('\n** This observation will be excluded from data summary!\n\n')
     }
-    
-    # Subset only rows marked to keep
-    tableClean <- tableClean[tableClean$keep == TRUE, ]
-    
-    # Identify results that are out of range
-    if(tableClean$rawNO3NO2[i] > 20) tableClean$hiVal[i] <- 'hiNO3NO2'
-    if(tableClean$rawNH4[i] > 4) tableClean$hiVal[i] <- 'hiNH4'
+
+    # Identify results with a single out-of-range value, as the corresponding
+    # in-range value will be take the place of the diluted in-range value
     if(tableClean$rawNO3NO2[i] > 20 &
-         tableClean$rawNH4[i] > 4) tableClean$hiVal[i] <- 'hiBoth'
-    
+       tableClean$rawNH4[i] <= 4) tableClean$hiVal[i] <- 'hiNO3NO2'
+    if(tableClean$rawNO3NO2[i] <= 20 &
+       tableClean$rawNH4[i] > 4) tableClean$hiVal[i] <- 'hiNH4'
+
   }  # End for-loop
   
-  # Identify rows with out of range values
-  hiValIndices <- which(!is.na(tableClean$hiVal))
-  # Identify rows with ok values
-  okValIndices <- which(is.na(tableClean$hiVal))
+  # Simplify tableClean by subsetting only rows marked to keep
+  tableClean <- tableClean[tableClean$keep == TRUE, ]
+  
+  # Indices of rows with out-of-range values
+  hiValRows <- which(!is.na(tableClean$hiVal))
+  # Indices of rows with ok values
+  okValRows <- which(is.na(tableClean$hiVal))
+  # Indices of rows having out-of-range values, but no corresponding dilutions
+  noDilRows <- numeric(0)
 
   # For each hiVal row
-  for(hiValInd in hiValIndices) {
-    # Identify labNum of current hiVal row
-    currentLabNum <- tableClean$labNum[hiValInd]
-    # Find labNum of row with ok values that matches the labNum of current
-    # hiVal row.  The former should be a dilution.
-    labNumMatchRows <- which(tableClean$labNum[okValIndices] %in% currentLabNum)
-    
-    # If multiple dilutions share the same lab number then throw an error
+  for(hiValRow in hiValRows) {
+    # Identify labNum of current row
+    currentLabNum <- tableClean$labNum[hiValRow]
+    # Find labNum of the row with ok values that matches the labNum of the
+    # current hiVal row.  The former should be a dilution.
+    labNumMatchRows <- which(tableClean$labNum[okValRows] %in% currentLabNum)
+
+    # If multiple in-range dilutions share the same lab number then throw an
+    # error.  No out-of-range dilutions (underdilutions) should occur here
+    # because they were filtered out in the previous for-loop
     if(length(labNumMatchRows > 1)) {
-      fatalError (cat('Multiple occurrences of lab number', currentLabNum))
-    # Initialize noMatch flag
-    noMatch <- FALSE
-    # If current hiVal sample has no corresponding dilution then exclude row
+      fatalError (cat('Multiple dilutions with lab number', currentLabNum))
+    # Else if current hiVal sample has no corresponding dilution then exclude
+    # current row
     }else if(length(labNumMatchRows = 0)) {
-      tableClean$keep(hiValInd) == FALSE
-      cat('** No corresponding dilution for observation', i)
-      cat('\n** This observation will be excluded from data summary!\n\n')
-      # Update flag
-      noMatch <- TRUE
+      tableClean$keep(hiValRow) == FALSE
+      # Add this row to noDilRows
+      noDilRows <- c(noDilRows, tableClean$labNum[hiValRow])
+    # Else a single match exists: length(labNumMatchRows) = 1
     }else{
       # Check expected dilution for presence of dilution ratio
-      if(is.na(tableClean$dilution[labNumMatchRows])) fatalError('????????????')
-      # Check type of hiVal
-      if(tableClean$hiVal[hiValInd] == 'hiNH4') {
-        tableClean$
+      if(is.na(tableClean$dilution[labNumMatchRows])) fatalError(
+        'Dilution ratio not found for lab number', tableClean$labNum[hiValRow])
+      # If hiVal is an ammonium... 
+      if(tableClean$hiVal[hiValRow] == 'hiNH4') {
+        # ... then retain the original nitrate/nitrite value
+        tableClean$rawNO3NO2[labNumMatchRows] <-
+          tableClean$rawNO3NO2[hiValRow]
+      # Else if hiVal is a nitrate/nitrite...
+      }else if(tableClean$hiVal[hiValRow] == 'hiNO3NO2') {
+        # ... then retain original ammonium value
+        tableClean$rawNH4[labNumMatchRows] <-
+          tableClean$rawNH4[hiValRow]
       }
+      # Label current row for deletion
+      tableClean$keep[hiValRow] <- FALSE
     }
-    
-  
-### remove out of range rows  
-  
-  
-  
+  }
+
   # Check for negative measured values, and set those observations to
   # keep = FALSE
   negValRows <- which(tableClean$rawNO3NO2 < 0 | tableClean$rawNH4 < 0)
@@ -219,6 +230,8 @@ readLachatOutput <- function() {
                         stop = (nchar(dateTimeLine)-4))
   # Convert date and time to POSIX format
   dateTimeConverted <- strptime(dateTimeSub, '%m/%d/%Y %I:%M:%S %p')
+  # Write run date/time to checkValues data frame
+  checkValues$runDate <- dateTimeConverted
   
   # Extract run date and copy to dataSheet
   dataSheet$runDay <- as.numeric(format(dateTimeConverted, '%d'))
@@ -257,20 +270,7 @@ readLachatOutput <- function() {
     
   })  # End of function(x) and lapply statement
   
-}
-
-
-################################################################################
-#
-# This function outputs a message indicating an excluded row
-#
-################################################################################
-
-excludeRow <- function (errorMessage) {
-  cat('\n\n')
-  fullMessage <- paste(errorMessage, '. Program halted.', sep = '')
-  stop(fullMessage, call. = FALSE)
-}
+}  # End of readLachatOutput()
 
 
 
