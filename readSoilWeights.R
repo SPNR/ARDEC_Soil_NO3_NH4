@@ -63,13 +63,13 @@ readSoilWeights <- function() {
     # The xlsx package contains read.xlsx2, which reads both xls and xlsx files
     library(xlsx)
     # Concatenate the names of all files in the default folder
-    for(i in 1:length(soilWeightFiles)){
-      soilWeightList <- lapply(soilWeightFiles,
-                               function(x) read.xlsx2(x,
-                                                      sheetIndex = 1, stringsAsFactors = FALSE, startRow = 4,
-                                                      colIndex = 1:2, header=FALSE,
-                                                      colClasses = c('numeric', 'numeric')))
-    }
+    
+    # Create a list of data frames from the list of Excel files
+    soilWeightList <- lapply(soilWeightFiles,
+                             function(x) read.xlsx2(x,
+                                                    sheetIndex = 1, stringsAsFactors = FALSE, startRow = 4,
+                                                    colIndex = 1:2, header=FALSE,
+                                                    colClasses = c('numeric', 'numeric')))
     
     # Transform the list of two-column data frames into a single data frame having
     # two columns
