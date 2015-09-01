@@ -10,26 +10,55 @@ readLachatOutput <- function() {
   # Define sample year
   sampleYear <- '2015'
   # Default file path for Omnion HTML file
-  omnionFile <- paste('V:/Halvorson/ADHLab/Lachat/Lachat data/', sampleYear,
-                      '/*.htm', sep = '')
+  omnionFolder <- paste('V:/Halvorson/ADHLab/Lachat/Lachat data/', sampleYear,
+                        '/', sep = '')
   # Prompt user to select an Omnion output file
   promptInput <-
-    readline('\n\nPress <ENTER> to select an Omnion .htm file... ')
-  # Check input character
-  if(promptInput != '') fatalError('Invalid input')
-  # Launch file chooser
-  htmlFile <- choose.files(default = omnionFile)
+    readline('\n\nPress <ENTER> to select a folder containing .htm files... ')
+  
+  # Choose folder containing Omnion .htm files
+  folder <- choose.dir(default = omnionFolder)
+  if(is.na(folder)) errorHandler('No folder selected')
+  
+  # Print status message
+  cat('\n\n...reading HTML files...')  
+  
+  # Capture filenames with htm and html extensions into list htmlFiles
+  htmlFiles <- Sys.glob(paste(folder, '/*.htm*', sep = ''))
   
   # Required for readHTMLTable function
   library(XML)
-  # Import table from HTML file
-  lachatTable <- readHTMLTable(htmlFile, which = 1, skip.rows = c(1:17),
-                               colClasses = c('character', rep('numeric', 3)),
-                               stringsAsFactors = FALSE)  
+  
+  # This loop replaces the lapply approach
+  lachatTable <- NULL
+  for(i in 1:length(htmlFiles)) {
+    htmlTable <- readHTMLTable(htmlFiles[i], which = 1, skip.rows = c(1:17),
+                         colClasses = c('character', rep('numeric', 3)),
+                         stringsAsFactors = FALSE)
+    # Read lines of raw HTML
+    htmlText = suppressWarnings(readLines(htmlFiles[i]))
+    # Line 8 contains date and time
+    dateTimeLine <- htmlText[8]
+    # Identify character position of keyword 'Created: '
+    createdStart <- gregexpr(pattern ='Created: ', dateTimeLine)
+    # Read date and time
+    dateTimeSub <- substr(dateTimeLine, start = createdStart[[1]][1] + 9,
+                          stop = (nchar(dateTimeLine) - 4))
+    # Convert date and time to POSIX format
+    dateTimeConverted <- strptime(dateTimeSub, '%m/%d/%Y %I:%M:%S %p')
+    
+    # Extract run date and copy to htmlTable
+    htmlTable$runDate <- dateTimeConverted
+    
+    # Add htmlTable to lachatTableList
+    lachatTable <- rbind(lachatTable, htmlTable)
+    
+  }  # End for-loop
+  
   # Delete second column (Rep column)
   lachatTable$V2 <- NULL
   # Rename remaining columns
-  names(lachatTable) <- c('labNum', 'rawNO3NO2', 'rawNH4')
+  names(lachatTable) <- c('labNum', 'rawNO3NO2', 'rawNH4', 'runDate')
   # Create a working copy of lachatTable
   tableClean <- lachatTable
   # Capitalize all letters to facilitate pattern matching
@@ -42,7 +71,15 @@ readLachatOutput <- function() {
   
   # Initialize data frame to contain soil check results
   checkValues <- data.frame(labNum = character(0), rawNO3NO2 = numeric(0),
-                            rawNH4 = numeric(0), runDate = numeric(0))
+                            rawNH4 = numeric(0), runDate = numeric(0),
+                            stringsAsFactors = FALSE)
+  
+  ##################
+  #
+  # Error messages below for "unreadable sample description" and "invalid lab
+  # number" can refer to row numbers that will be different in the modified
+  # tableClean due to removed 'keep=FALSE' lines.
+  #
   
   # Search for keywords in Omnion sample names, one row at a time
   for(i in 1:nrow(tableClean)) {
@@ -50,8 +87,10 @@ readLachatOutput <- function() {
     # If current name contains keyword 'check' then copy NO3NO2 and NH4 values
     # to checkValues
     if(grepl('CHECK', tableClean[i, 1])) {
-      checkValues <- rbind(checkValues, c(tableClean$rawNO3NO2[i],
-                                          tableClean$rawNH4[i]))   
+      checkValues <- rbind(checkValues,
+                           c(tableClean$rawNO3NO2[i], tableClean$rawNH4[i],
+                             tableClean$runDay[i], tableClean$runMonth[i],
+                             tableClean$runYear[i]))
       # Else if current name contains '1:' then extract the dilution value and
       # lab number
     }else if(grepl('1:', tableClean$labNum[i])) {
@@ -220,28 +259,7 @@ readLachatOutput <- function() {
   # Now read worksheet 1, using colClassVector
   excelSheet <- read.xlsx2(dataFile, sheetIndex = 1,
                            colClasses = colClassVector, stringsAsFactors = FALSE)
-  
-  ## Extract run date from Omnion file
-  #
-  # Read lines of raw HTML
-  htmlText = suppressWarnings(readLines(htmlFile))
-  # Line 8 contains date and time
-  dateTimeLine <- htmlText[8]
-  # Identify character position of keyword 'Created: '
-  createdStart <- gregexpr(pattern ='Created: ', dateTimeLine)
-  # Read date and time
-  dateTimeSub <- substr(dateTimeLine, start = createdStart[[1]][1] + 9,
-                        stop = (nchar(dateTimeLine)-4))
-  # Convert date and time to POSIX format
-  dateTimeConverted <- strptime(dateTimeSub, '%m/%d/%Y %I:%M:%S %p')
-  # Write run date/time to checkValues data frame
-  checkValues$runDate <- dateTimeConverted
-  
-  # Extract run date and copy to dataSheet
-  dataSheet$runDay <- as.numeric(format(dateTimeConverted, '%d'))
-  dataSheet$runMonth <- as.numeric(format(dateTimeConverted, '%m'))
-  dataSheet$runYear <- as.numeric(format(dateTimeConverted, '%Y'))
-  
+
   # For each value of labNum in tableFinal...
   lapply(tableFinal$labNum, function(x) {
     
@@ -271,6 +289,11 @@ readLachatOutput <- function() {
       dataSheet$bulkDensity[dataSheetIndex] *
       (dataSheet$depthBottom - dataSheet$depthTop) * 0.254 *
       dataSheet$adjNH4[dataSheetIndex]
+    
+    # Copy run date
+    dataSheet$runDay[dataSheetIndex] <- tableFinal$runDay[tableFinalIndex]
+    dataSheet$runMonth[dataSheetIndex] <- tableFinal$runMonth[tableFinalIndex]
+    dataSheet$runYear[dataSheetIndex] <- tableFinal$runYear[tableFinalIndex]
     
   })  # End of function(x) and lapply statement
   
