@@ -15,26 +15,24 @@ readLachatOutput <- function() {
   # Prompt user to select an Omnion output file
   promptInput <-
     readline('\n\nPress <ENTER> to select a folder containing .htm files... ')
-  
   # Choose folder containing Omnion .htm files
   folder <- choose.dir(default = omnionFolder)
   if(is.na(folder)) errorHandler('No folder selected')
-  
   # Print status message
-  cat('\n\n...reading HTML files...')  
-  
+  cat('\n\n...reading HTML files...')
   # Capture filenames with htm and html extensions into list htmlFiles
   htmlFiles <- Sys.glob(paste(folder, '/*.htm*', sep = ''))
   
   # Required for readHTMLTable function
   library(XML)
-  
-  # This loop replaces the lapply approach
-  lachatTable <- NULL
+  # Create a list to contain individual DFs of HTML tables
+  tableList <- list()
+  # For each filename...
   for(i in 1:length(htmlFiles)) {
-    htmlTable <- readHTMLTable(htmlFiles[i], which = 1, skip.rows = c(1:17),
-                         colClasses = c('character', rep('numeric', 3)),
-                         stringsAsFactors = FALSE)
+    # Read the HTML data table
+    tableList[[i]] <- readHTMLTable(htmlFiles[i], which = 1, skip.rows =
+                          c(1:17), colClasses = c('character',
+                          rep('numeric', 3)), stringsAsFactors = FALSE)
     # Read lines of raw HTML
     htmlText = suppressWarnings(readLines(htmlFiles[i]))
     # Line 8 contains date and time
@@ -44,16 +42,20 @@ readLachatOutput <- function() {
     # Read date and time
     dateTimeSub <- substr(dateTimeLine, start = createdStart[[1]][1] + 9,
                           stop = (nchar(dateTimeLine) - 4))
-    # Convert date and time to POSIX format
-    dateTimeConverted <- strptime(dateTimeSub, '%m/%d/%Y %I:%M:%S %p')
-    
-    # Extract run date and copy to htmlTable
-    htmlTable$runDate <- dateTimeConverted
-    
-    # Add htmlTable to lachatTableList
-    lachatTable <- rbind(lachatTable, htmlTable)
+    # Extract run date and copy to current table
+    tableList[[i]]$runDate <- dateTimeSub
     
   }  # End for-loop
+
+  # Concatenate list of DFs into a single DF
+  lachatTable <- NULL
+  # The data.table package provides rbindlist()
+  library(data.table)
+  lachatTable <- rbindlist(tableList)
+  
+  # Convert date and time to POSIX format
+  lachatTable$runDate <- as.POSIXct(lachatTable$runDate,
+                                    format = '%m/%d/%Y %I:%M:%S %p')
   
   # Delete second column (Rep column)
   lachatTable$V2 <- NULL
