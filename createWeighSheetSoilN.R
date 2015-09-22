@@ -256,7 +256,7 @@ createWeighSheet <- function() {
   
   # This function formats the worksheet's title and subtitle
   addTitle <- function(sheet, rowIndex, title, titleStyle) {
-    rows <- createRow(sheet, rowIndex = rowIndex)
+    rows <- createRow(sheet, rowIndex = rowIndex)  # createRow is from xlsx
     sheetTitle <- createCell(rows, colIndex = 1)
     setCellValue(sheetTitle[[1,1]], title)
     setCellStyle(sheetTitle[[1,1]], titleStyle)
