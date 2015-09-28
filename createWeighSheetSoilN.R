@@ -164,12 +164,12 @@ createWeighSheet <- function() {
   dupCheckSub <- subset(dataSheet, study == st)
   if(!is.na(pltsfx) & st != 'DMP') dupCheckSub <- subset(dupCheckSub,
                                                          plotSuffix = pltsfx)
-  if(dupCheckSub[1, 'sampDay'] == day & dupCheckSub[1, 'sampMonth'] == month &
-       dupCheckSub[1, 'sampYear'] == year) {
+  # If either sampDay or sampMonth exists then throw an error
+  if(!is.na(dupCheckSub[1, 'sampDay']) | !is.na(dupCheckSub[1, 'sampMonth'])) {
     fatalError(paste('Duplicate sampling event exists on', textDate,
-                       'for specified study.'))
+                     'for specified study.'))
   }
-  
+
   # If startNum is not specified by the user then identify the largest existing
   # lab number in excelDataSheet, and start the new lab numbers after it.
   if(is.na(startNum)) {
@@ -281,7 +281,7 @@ createWeighSheet <- function() {
   saveWorkbook(weighSheetWB, weighFileName)
   
   # Output status message
-  cat('\n\n...updating soil file...')
+  cat('\n\n...updating ARDEC soil file...')
   
   # Create new soil file name
   filename <- paste(path, dataFileName, fileExt, sep = '')
