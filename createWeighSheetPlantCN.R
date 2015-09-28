@@ -103,12 +103,14 @@ createWeighSheet <- function() {
   startNum <- as.integer(readline('\n\     ? '))
   cat('\n\nPress <ENTER> to select a plant template file... ')
   templatePrompt <- readline()
-  if(templatePrompt != '') fatalError('Invalid selection')
+  
+  # Is this input check necessary?
+  # if(templatePrompt != '') fatalError('Invalid selection')
   
   # Spawn file chooser to have user select a template file from which to build
   # the weigh sheet
-  path <- 'C:/Users/Robert/Documents/GitHub/ARDEC_Soil_NO3_NH4/'
-  #path <- 'W:/R/SPNR/spnr tables/'
+  #path <- 'C:/Users/Robert/Documents/GitHub/ARDEC_Soil_NO3_NH4/'
+  path <- 'W:/R/SPNR/spnr tables/'
   fileExt <- '.xlsx'
   defaultTemplateFile <- paste(path, 'ARDEC_Plant_CN_Template', fileExt,
                                sep = '')
@@ -181,8 +183,10 @@ createWeighSheet <- function() {
     weighSheet <- arrange(weighSheet, plotNumber, plotSuffix) 
   } else weighSheet <- arrange(weighSheet, plotNumber)
   
-  # Fill segment column and sort again, first by segment
+  # Populate segment column
   weighSheet$segment <- segments
+  # Sort again, first by segment (because the segment column is populated by
+  # cycling through the segment list)
   if(st == 'DMP') {
     weighSheet <- arrange(weighSheet, segment, plotNumber, plotSuffix) 
   } else weighSheet <- arrange(weighSheet, segment, plotNumber)
@@ -209,11 +213,11 @@ createWeighSheet <- function() {
   # Check for duplicate sampling events (existing dates are same as current)
   dupCheckSub <- subset(dataSheet, study == st)
   if(!is.na(pltsfx) & st != 'DMP') dupCheckSub <- subset(dupCheckSub,
-                                                         plotSuffix = pltsfx)
-  if(dupCheckSub[1, 'sampDay'] == day & dupCheckSub[1, 'sampMonth'] == month &
-       dupCheckSub[1, 'sampYear'] == year) {
+                                                         plotSuffix == pltsfx)
+  # If either sampDay or sampMonth exists then throw an error
+  if(!is.na(dupCheckSub[1, 'sampDay']) | !is.na(dupCheckSub[1, 'sampMonth'])) {
     fatalError(paste('Duplicate sampling event exists on', textDate,
-                       'for specified study.'))
+                     'for specified study.'))
   }
   
   # If startNum is not specified by the user then identify the largest existing
@@ -249,7 +253,7 @@ createWeighSheet <- function() {
   # Output status message
   cat('\n\n...assigning lab numbers...')
   
-  # Assign lab numbers and sampling date to sorted weigh sheet
+  # Assign lab numbers to sorted weigh sheet
   weighSheet$labNum <- numVec
   weighSheet$sampDay <- day
   weighSheet$sampMonth <- month
@@ -264,9 +268,8 @@ createWeighSheet <- function() {
   names(weighSheet)[names(weighSheet) == 'rep'] <- 'Rep'
   names(weighSheet)[names(weighSheet) == 'plotNumber'] <- 'Plot'
   names(weighSheet)[names(weighSheet) == 'plotSuffix'] <- 'Suffix'
-  names(weighSheet)[names(weighSheet) == 'segment'] <- 'Segment'
-  names(weighSheet)[names(weighSheet) == 'plotSuffix'] <- 'Suffix'
-  
+  names(weighSheet)[names(weighSheet) == 'plantSegment'] <- 'Segment'
+
   # If no plot suffix is present in weighSheet then remove that column.  Also,
   # arrange columns specifically in this order:
   if(weighSheet$Suffix[1] == '' | is.na(weighSheet$Suffix[1])) {
@@ -274,6 +277,7 @@ createWeighSheet <- function() {
   } else {keepCols <- c('Trt', 'Rep', 'Plot', 'Suffix',  'Segment', 'Tray',
                         'Well', 'LabNum')
   }
+  
   # Specify columns to keep in weighSheet
   weighSheet <- weighSheet[keepCols]
   
@@ -298,7 +302,6 @@ createWeighSheet <- function() {
   tableColNamesStyle <- CellStyle(weighSheetWB) +
     Font(weighSheetWB, isBold = TRUE) +
     Alignment(horizontal = 'ALIGN_CENTER')
-  
   # This function formats the worksheet's title and subtitle
   addTitle <- function(sheet, rowIndex, title, titleStyle) {
     rows <- createRow(sheet, rowIndex = rowIndex)  # createRow is from xlsx
@@ -309,7 +312,7 @@ createWeighSheet <- function() {
   
   # Create main title
   titleText <- paste(year, ' ', season, ',', sep = '' )
-  titleText <- paste(titleText, 'ARDEC', st, pltsfx)
+  titleText <- paste(titleText, 'ARDEC', st, pltsfx, crop)
   dateSubtitleText <- paste('Sampling date:', textDate)
   addTitle(weighSheetWS, rowIndex = 1, title = titleText,
            titleStyle = titleStyle)
@@ -326,7 +329,7 @@ createWeighSheet <- function() {
   saveWorkbook(weighSheetWB, weighFileName)
   
   # Output status message
-  cat('\n\n...updating soil file...')
+  cat('\n\n...updating ARDEC plant file...')
   
   # Create new soil file name
   filename <- paste(path, dataFileName, fileExt, sep = '')
