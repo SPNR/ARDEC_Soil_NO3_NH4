@@ -71,6 +71,7 @@ createWeighSheet <- function() {
     crop <- 'Pea'
     segments <- c('Stem', 'Grain')
   if(is.na(crop)) fatalError('Invalid selection')
+  }
   
   # Prompt user for sampling date
   cat('\nEnter sampling date (mm-dd-yyyy):')
@@ -100,13 +101,14 @@ createWeighSheet <- function() {
   # Prompt user for starting lab number
   cat('\n\nStarting lab number? (<ENTER> for autonumbering)  ')
   startNum <- as.integer(readline('\n\     ? '))
-  cat('\n\nPress <ENTER> to select a soil template file... ')
+  cat('\n\nPress <ENTER> to select a plant template file... ')
   templatePrompt <- readline()
   if(templatePrompt != '') fatalError('Invalid selection')
   
   # Spawn file chooser to have user select a template file from which to build
   # the weigh sheet
-  path <- 'W:/R/SPNR/spnr tables/'
+  path <- 'C:/Users/Robert/Documents/GitHub/ARDEC_Soil_NO3_NH4/'
+  #path <- 'W:/R/SPNR/spnr tables/'
   fileExt <- '.xlsx'
   defaultTemplateFile <- paste(path, 'ARDEC_Plant_CN_Template', fileExt,
                                sep = '')
@@ -116,6 +118,7 @@ createWeighSheet <- function() {
   cat('\n\nReading template file...')
   
   # Package xlsx provides read/write functions for Excel files
+  
   library(xlsx)
   # Worksheet 2 contains the classes for each column used on worksheet 1
   templateSheet2 <- read.xlsx2(filename, sheetIndex = 2,
@@ -169,8 +172,8 @@ createWeighSheet <- function() {
   library(dplyr)
   
   # Duplicate all rows in weighSheet for each additional plant segment
-  if(length(segments) = 2) weighSheet <- bind_rows(weighSheet, weighSheet)
-  if(length(segments) = 3) weighSheet <-
+  if(length(segments) == 2) weighSheet <- bind_rows(weighSheet, weighSheet)
+  if(length(segments) == 3) weighSheet <-
     bind_rows(weighSheet, weighSheet, weighSheet)
   
   # Sort rows by plot number and suffix (if applicable)
@@ -184,31 +187,25 @@ createWeighSheet <- function() {
     weighSheet <- arrange(weighSheet, segment, plotNumber, plotSuffix) 
   } else weighSheet <- arrange(weighSheet, segment, plotNumber)
 
-  # Create objects for tray numbers and well names
-  trayRows <- paste(LETTERS[1:4])
-  trayCols <- as.character(c(1:6))
+  # Create vector of tray well names
+  wellNames <- c('A1', 'A2', 'A3', 'A4', 'A5', 'A6',
+                 'B1', 'B2', 'B3', 'B4', 'B5', 'B6',
+                 'C1', 'C2', 'C3', 'C4', 'C5', 'C6',
+                 'D1', 'D2', 'D3', 'D4', 'D5', 'D6')
+  
   # Number of trays needed, at 24 wells per tray
-  numTrays <- ceiling(nrow(weighSheet) / 24)
+  # numTrays <- ceiling(nrow(weighSheet) / 24)
+  
   # Add tray and well names to weighSheet
   rowsPerSeg <- nrow(weighSheet) / length(segments)
-
+  
   for(i in 1:length(segments)) {
+    # Populate tray number for each segment subset
     weighSheet$Tray[((i - 1) * rowsPerSeg + 1):(i * rowsPerSeg)] <- i
-    segRowCount <- 0
-    repeat {
-      segRowCount <- segRowCount + 1
-      weighSheet$Well <- paste(trayRows[i], trayCols[segRowCount])
-      
-      # this for loop requires completion
-      
-    }
+    # Populate well names for each segment subset
+    weighSheet$Well[((i - 1) * rowsPerSeg + 1):(i * rowsPerSeg)] <- wellNames
   }
 
-
-  
-  
-  
-  
   # Check for duplicate sampling events (existing dates are same as current)
   dupCheckSub <- subset(dataSheet, study == st)
   if(!is.na(pltsfx) & st != 'DMP') dupCheckSub <- subset(dupCheckSub,
@@ -218,10 +215,6 @@ createWeighSheet <- function() {
     fatalError(paste('Duplicate sampling event exists on', textDate,
                        'for specified study.'))
   }
-  
-  
-  
-  
   
   # If startNum is not specified by the user then identify the largest existing
   # lab number in excelDataSheet, and start the new lab numbers after it.
@@ -249,10 +242,6 @@ createWeighSheet <- function() {
                  'data file:\n', dups, '\n** Program halted. **'))
   }
   
-  
-  
-  
-  
   # If no rows match input criteria then halt script with an error message
   if(nrow(weighSheet) == 0) fatalError(
     'No match in plant file.  Check input values.')
@@ -266,8 +255,6 @@ createWeighSheet <- function() {
   weighSheet$sampMonth <- month
   weighSheet$sampYear <- year
 
-  
-  
   # Append weighSheet to dataSheet, inserting NAs where columns don't match
   dataSheetNew <- as.data.frame(bind_rows(dataSheet, weighSheet))
   
