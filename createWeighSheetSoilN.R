@@ -1,11 +1,12 @@
 ################################################################################
 #
-# Assign soil lab numbers to a study, and create a soil weigh sheet
+# Assign lab numbers to soil samples from a specific study, and create a 
+# weigh sheet for nitrate/ammonium analysis
 #
 ################################################################################
 
 # This function creates a printable weigh sheet
-createWeighSheet <- function() {
+labSheet <- function() {
   
   # Prompt user for weigh sheet details
   cat('Choose a study:\n')
@@ -209,6 +210,15 @@ createWeighSheet <- function() {
   weighSheet$sampMonth <- month
   weighSheet$sampYear <- year
   
+  # Delete original rows from datasheet for current plot and suffix because
+  # they will have no lab numbers
+  if(is.na(pltsfx)) {
+    dataSheet <- filter(dataSheet, study != st & is.na(labNum))
+  } else {
+    dataSheet <- filter(dataSheet, !(study == st & plotSuffix == pltsfx) &
+                          is.na(labNum))
+  }
+  
   # Package dplyr provides the bind_rows function
   library(dplyr)
   # Append weighSheet to dataSheet, inserting NAs where columns don't match
@@ -237,12 +247,12 @@ createWeighSheet <- function() {
   
   # Create weigh file name
   if(is.na(pltsfx)) pltsfx <- ''
-  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, pltsfx,
+  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, '', pltsfx,
                          ' soil weigh sheet.xlsx', sep = '')
   # Create a workbook for the weigh sheet
   weighSheetWB <- createWorkbook()
   # Create a worksheet
-  weighSheetWS <- createSheet(weighSheetWB, sheetName = 'Weigh_Sheet')
+  weighSheetWS <- createSheet(weighSheetWB, sheetName = 'Weigh Sheet')
   # Define cell styles for weigh sheet workbook
   titleStyle <- CellStyle(weighSheetWB) +
     Font(weighSheetWB, heightInPoints=14, isBold=TRUE)
@@ -281,7 +291,7 @@ createWeighSheet <- function() {
   saveWorkbook(weighSheetWB, weighFileName)
   
   # Output status message
-  cat('\n\n...updating ARDEC soil file...')
+  cat('\n\n...updating ARDEC soil data file...')
   
   # Create new soil file name
   filename <- paste(path, dataFileName, fileExt, sep = '')
