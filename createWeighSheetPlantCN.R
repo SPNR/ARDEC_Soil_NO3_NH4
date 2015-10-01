@@ -1,11 +1,16 @@
 ################################################################################
 #
-# Assign soil lab numbers to a study, and create a soil weigh sheet
+# Assign lab numbers to plant samples from a specific study, and create a 
+# weigh sheet for CN analysis
 #
 ################################################################################
 
-# This function creates a printable weigh sheet
-createWeighSheet <- function() {
+# This function creates a printable weigh sheet for plant CN analysis
+labSheet <- function() {
+  
+  # Silence warnings throughout this function
+  oldWarn <- getOption("warn")
+  options(warn = -1)
   
   # Prompt user for weigh sheet details
   cat('Choose a study:\n')
@@ -147,11 +152,6 @@ createWeighSheet <- function() {
   # Output status message
   cat('\n\n...creating weigh sheet...')
   
-  
-  
-  
-  
-  
   # If DMP was specified for the weighSheet...
   if(st == 'DMP') {
     # ... then subset by study
@@ -165,11 +165,13 @@ createWeighSheet <- function() {
     }
   }
 
-  # Add columns for plant segment and tray/well identifiers
-  weighSheet$segment <- NA_character_
-  weighSheet$Tray <- NA_integer_
-  weighSheet$Well <- NA_character_
-
+#   # Add columns for plant segment and tray/well identifiers
+#   #weighSheet$segment <- NA_character_
+#   weighSheet$Tray <- NA_integer_
+#   weighSheet$Well <- NA_character_
+#-------- template file now includes these columns
+  
+  
   # Package dplyr provides arrange(), bind_rows(), etc.
   library(dplyr)
   
@@ -184,12 +186,12 @@ createWeighSheet <- function() {
   } else weighSheet <- arrange(weighSheet, plotNumber)
   
   # Populate segment column
-  weighSheet$segment <- segments
+  weighSheet$plantSegment <- segments
   # Sort again, first by segment (because the segment column is populated by
   # cycling through the segment list)
   if(st == 'DMP') {
-    weighSheet <- arrange(weighSheet, segment, plotNumber, plotSuffix) 
-  } else weighSheet <- arrange(weighSheet, segment, plotNumber)
+    weighSheet <- arrange(weighSheet, plantSegment, plotNumber, plotSuffix) 
+  } else weighSheet <- arrange(weighSheet, plantSegment, plotNumber)
 
   # Create vector of tray well names
   wellNames <- c('A1', 'A2', 'A3', 'A4', 'A5', 'A6',
@@ -205,9 +207,9 @@ createWeighSheet <- function() {
   
   for(i in 1:length(segments)) {
     # Populate tray number for each segment subset
-    weighSheet$Tray[((i - 1) * rowsPerSeg + 1):(i * rowsPerSeg)] <- i
+    weighSheet$tray[((i - 1) * rowsPerSeg + 1):(i * rowsPerSeg)] <- i
     # Populate well names for each segment subset
-    weighSheet$Well[((i - 1) * rowsPerSeg + 1):(i * rowsPerSeg)] <- wellNames
+    weighSheet$well[((i - 1) * rowsPerSeg + 1):(i * rowsPerSeg)] <- wellNames
   }
 
   # Check for duplicate sampling events (existing dates are same as current)
@@ -259,9 +261,24 @@ createWeighSheet <- function() {
   weighSheet$sampMonth <- month
   weighSheet$sampYear <- year
 
-  # Append weighSheet to dataSheet, inserting NAs where columns don't match
-  dataSheetNew <- as.data.frame(bind_rows(dataSheet, weighSheet))
+  # Delete original rows from datasheet for current plot and suffix because
+  # they will have no lab numbers
+  if(is.na(pltsfx)) {
+    dataSheet <- filter(dataSheet, study != st & is.na(labNum))
+  } else {
+    dataSheet <- filter(dataSheet, !(study == st & plotSuffix == pltsfx &
+                          is.na(labNum)))
+  }
   
+  # Remove tray and well columns before binding to dataSheet
+  weighSheetLite <- weighSheet
+  weighSheetLite$tray <- NULL
+  weighSheetLite$well <- NULL
+  # Populate crop column in weighSheetLite
+  weighSheetLite$crop <- crop
+  # Append weighSheet to dataSheet
+  dataSheetNew <- as.data.frame(bind_rows(dataSheet, weighSheetLite))
+
   # Rename weighSheet column headers for clarity
   names(weighSheet)[names(weighSheet) == 'labNum'] <- 'LabNum'
   names(weighSheet)[names(weighSheet) == 'trtLevel'] <- 'Trt'
@@ -269,6 +286,8 @@ createWeighSheet <- function() {
   names(weighSheet)[names(weighSheet) == 'plotNumber'] <- 'Plot'
   names(weighSheet)[names(weighSheet) == 'plotSuffix'] <- 'Suffix'
   names(weighSheet)[names(weighSheet) == 'plantSegment'] <- 'Segment'
+  names(weighSheet)[names(weighSheet) == 'tray'] <- 'Tray'
+  names(weighSheet)[names(weighSheet) == 'well'] <- 'Well'
 
   # If no plot suffix is present in weighSheet then remove that column.  Also,
   # arrange columns specifically in this order:
@@ -278,6 +297,8 @@ createWeighSheet <- function() {
                         'Well', 'LabNum')
   }
   
+  # Ensure that weighSheet is a data frame
+  weighSheet <- as.data.frame(weighSheet)
   # Specify columns to keep in weighSheet
   weighSheet <- weighSheet[keepCols]
   
@@ -286,12 +307,12 @@ createWeighSheet <- function() {
   
   # Create weigh file name
   if(is.na(pltsfx)) pltsfx <- ''
-  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, pltsfx,
+  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, ' ', pltsfx,
                          ' plant weigh sheet.xlsx', sep = '')
   # Create a workbook for the weigh sheet
   weighSheetWB <- createWorkbook()
   # Create a worksheet
-  weighSheetWS <- createSheet(weighSheetWB, sheetName = 'Weigh_Sheet')
+  weighSheetWS <- createSheet(weighSheetWB, sheetName = 'Weigh Sheet')
   # Define cell styles for weigh sheet workbook
   titleStyle <- CellStyle(weighSheetWB) +
     Font(weighSheetWB, heightInPoints=14, isBold=TRUE)
@@ -329,11 +350,11 @@ createWeighSheet <- function() {
   saveWorkbook(weighSheetWB, weighFileName)
   
   # Output status message
-  cat('\n\n...updating ARDEC plant file...')
+  cat('\n\n...updating ARDEC plant data file...')
   
-  # Create new soil file name
+  # Create new plant file name
   filename <- paste(path, dataFileName, fileExt, sep = '')
-  # Write new soil file
+  # Write new plant file
   write.xlsx2(dataSheetNew, file = filename, sheetName = 'Data',
               showNA = FALSE, row.names = FALSE)
   write.xlsx2(templateSheet2, file = filename, sheetName = 'Columns',
@@ -341,6 +362,9 @@ createWeighSheet <- function() {
   
   # Output status message
   cat('\n\n...done.')
+  
+  # Restore previous warning level
+  options(warn = oldWarn)
 }
 
 # This function handles fatal errors with message output
