@@ -106,8 +106,8 @@ labSheet <- function() {
   # Prompt user for starting lab number
   cat('\n\nStarting lab number? (<ENTER> for autonumbering)  ')
   startNum <- as.integer(readline('\n\     ? '))
-  cat('\n\nPress <ENTER> to select a plant template file... ')
-  templatePrompt <- readline()
+#   cat('\n\nPress <ENTER> to select a plant template file... ')
+#   templatePrompt <- readline()
   
   # Is this input check necessary?
   # if(templatePrompt != '') fatalError('Invalid selection')
@@ -117,9 +117,9 @@ labSheet <- function() {
   #path <- 'C:/Users/Robert/Documents/GitHub/ARDEC_Soil_NO3_NH4/'
   path <- 'W:/R/SPNR/spnr tables/'
   fileExt <- '.xlsx'
-  defaultTemplateFile <- paste(path, 'ARDEC_Plant_CN_Template', fileExt,
+  templateFile <- paste(path, 'ARDEC_Plant_CN_Template', fileExt,
                                sep = '')
-  filename <- choose.files(default = defaultTemplateFile)
+#   filename <- choose.files(default = defaultTemplateFile)
   
   # Output status message
   cat('\n\nReading template file...')
@@ -128,12 +128,12 @@ labSheet <- function() {
   
   library(xlsx)
   # Worksheet 2 contains the classes for each column used on worksheet 1
-  templateSheet2 <- read.xlsx2(filename, sheetIndex = 2,
+  templateSheet2 <- read.xlsx2(templateFile, sheetIndex = 2,
                                stringsAsFactors = FALSE)
   colClassVector <- templateSheet2[, 2]
   names(colClassVector) <- templateSheet2[, 1]
   # Now read worksheet 1, using colClassVector
-  templateSheet <- read.xlsx2(filename, sheetIndex = 1,
+  templateSheet <- read.xlsx2(templateFile, sheetIndex = 1,
                               colClasses = colClassVector,
                               stringsAsFactors = FALSE)
   
@@ -264,7 +264,7 @@ labSheet <- function() {
   # Delete original rows from datasheet for current plot and suffix because
   # they will have no lab numbers
   if(is.na(pltsfx)) {
-    dataSheet <- filter(dataSheet, study != st & is.na(labNum))
+    dataSheet <- filter(dataSheet, !(study == st & is.na(labNum)))
   } else {
     dataSheet <- filter(dataSheet, !(study == st & plotSuffix == pltsfx &
                           is.na(labNum)))
