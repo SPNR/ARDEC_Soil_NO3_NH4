@@ -182,7 +182,8 @@ labSheet <- function() {
   
   # Sort rows by plot number and suffix (if applicable)
   if(st == 'DMP') {
-    weighSheet <- arrange(weighSheet, plotNumber, plotSuffix) 
+    weighSheet <- arrange(weighSheet, plotNumber, plotSuffix)
+    # Else only one suffix appears on the weigh sheet
   } else weighSheet <- arrange(weighSheet, plotNumber)
   
   # Populate segment column
@@ -212,15 +213,32 @@ labSheet <- function() {
     weighSheet$well[((i - 1) * rowsPerSeg + 1):(i * rowsPerSeg)] <- wellNames
   }
 
-  # Check for duplicate sampling events (existing dates are same as current)
-  dupCheckSub <- subset(dataSheet, study == st)
-  if(!is.na(pltsfx) & st != 'DMP') dupCheckSub <- subset(dupCheckSub,
-                                                         plotSuffix == pltsfx)
-  # If either sampDay or sampMonth exists then throw an error
-  if(!is.na(dupCheckSub[1, 'sampDay']) | !is.na(dupCheckSub[1, 'sampMonth'])) {
-    fatalError(paste('Duplicate sampling event exists on', textDate,
-                     'for specified study.'))
+  
+
+#   # Check for duplicate sampling events (existing dates are same as current)
+#   dupCheckSub <- subset(dataSheet, study == st)
+#   if(!is.na(pltsfx) & st != 'DMP') dupCheckSub <- subset(dupCheckSub,
+#                                                          plotSuffix == pltsfx)
+#   # If either sampDay or sampMonth exists then throw an error
+#   if(!is.na(dupCheckSub[1, 'sampDay']) | !is.na(dupCheckSub[1, 'sampMonth'])) {
+#     fatalError(paste('Duplicate sampling event exists on', textDate,
+#                      'for specified study.'))
+#   }
+  
+  # Check for duplicate sampling events by comparing existing dates to current
+  # date.
+  #
+  # Extract a subset of current study and suffix if applicable
+  if(st == 'DMP' | is.na(pltsfx)) {
+    dupCheckSub <- filter(dataSheet, study == st)
+  } else {
+    dupCheckSub <- filter(dataSheet, study == st & plotSuffix == pltsfx)
   }
+  dupDateSub <- filter(dupCheckSub, sampDay == day & sampMonth == month &
+                           sampYear == year)
+  if(nrow(dupDateSub > 0)) fatalError(
+    paste('Duplicate sampling event exists on', textDate,
+          'for specified study.'))
   
   # If startNum is not specified by the user then identify the largest existing
   # lab number in excelDataSheet, and start the new lab numbers after it.
