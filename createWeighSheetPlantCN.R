@@ -16,7 +16,7 @@ labSheet <- function() {
   cat('Choose a study:\n')
   cat('\n\t1. Rotation 1\n\t2. Rotation 2\n\t3. Rotation 3\n\t4. Rotation 4')
   cat('\n\t5. Rotation 5\n\t6. Strip Till\n\t7. DMP')
-  stNum <- readline('\n\     ? ')
+  stNum <- readline('\n     ? ')
   st <- NA_character_
   if(stNum == '1') st <- 'Rotation 1'
   if(stNum == '2') st <- 'Rotation 2'
@@ -34,7 +34,7 @@ labSheet <- function() {
   if(stNum == '1' | stNum == '2' | stNum == '5') {
     cat('\nChoose a suffix:\n')
     cat('\n\t1. East\n\t2. West')
-    pltsfxNum <- readline('\n     ? ')
+    pltsfxNum <- readline('\n     ?\n ')
     if(pltsfxNum == '1') pltsfx <- 'E'
     if(pltsfxNum == '2') pltsfx <- 'W'
     if(is.na(pltsfx)) fatalError('Invalid selection')
@@ -52,9 +52,9 @@ labSheet <- function() {
   # Prompt user for crop type
   cat('\nSelect crop type:\n')
   cat('\n\t1. Corn\n\t2. Pinto Bean\n\t3. Soybean\n\t4. Sorghum Sudangrass')
-  cat('\n\t5. Pea')
+  cat('\n\t5. Pea\n\t6. Polycrop')
   crop <- NA_character_
-  crop <- readline('\n\     ? ')
+  crop <- readline('\n     ? ')
   segments <- NA_character_
   if(crop == '1') {
     crop <- 'Corn'
@@ -77,10 +77,14 @@ labSheet <- function() {
     segments <- c('Stem', 'Grain')
   if(is.na(crop)) fatalError('Invalid selection')
   }
+  if(crop == '6') {
+    crop <- 'Polycrop'
+    segments <- c('Blend')
+  }
   
   # Prompt user for sampling date
   cat('\nEnter sampling date (mm-dd-yyyy):')
-  textDate <- readline('\n\     ? ')
+  textDate <- readline('\n     ? ')
   # Test for valid date
   dateTest <- as.Date(textDate, '%m-%d-%Y')
   if(is.na(dateTest)) fatalError('Invalid date')
@@ -105,7 +109,7 @@ labSheet <- function() {
   
   # Prompt user for starting lab number
   cat('\n\nStarting lab number? (<ENTER> for autonumbering)  ')
-  startNum <- as.integer(readline('\n\     ? '))
+  startNum <- as.integer(readline('\n     ? '))
 #   cat('\n\nPress <ENTER> to select a plant template file... ')
 #   templatePrompt <- readline()
   
@@ -236,7 +240,9 @@ labSheet <- function() {
   }
   dupDateSub <- filter(dupCheckSub, sampDay == day & sampMonth == month &
                            sampYear == year)
-  if(nrow(dupDateSub > 0)) fatalError(
+  
+  # If duplicate dates appear then throw a fatal error
+  if(nrow(dupDateSub) > 0) fatalError(
     paste('Duplicate sampling event exists on', textDate,
           'for specified study.'))
   
@@ -323,10 +329,14 @@ labSheet <- function() {
   # Output status message
   cat('\n\n...saving weigh sheet...')
   
-  # Create weigh file name
-  if(is.na(pltsfx)) pltsfx <- ''
-  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, ' ', pltsfx,
+  # Create weigh file name.
+  if(is.na(pltsfx)) {
+  weighFileName <- paste(path, textDate, ' ARDEC ', st, ' ',
                          ' plant weigh sheet.xlsx', sep = '')
+  } else {
+    weighFileName <- paste(path, textDate, ' ARDEC ', st, ' ', pltsfx,
+                           ' plant weigh sheet.xlsx', sep = '')
+  }
   # Create a workbook for the weigh sheet
   weighSheetWB <- createWorkbook()
   # Create a worksheet
@@ -351,7 +361,11 @@ labSheet <- function() {
   
   # Create main title
   titleText <- paste(year, ' ', season, ',', sep = '' )
-  titleText <- paste(titleText, 'ARDEC', st, pltsfx, crop)
+  if(is.na(pltsfx)) {
+    titleText <- paste(titleText, 'ARDEC', st, crop)
+  } else {
+    titleText <- paste(titleText, 'ARDEC', st, pltsfx, crop)
+  }
   dateSubtitleText <- paste('Sampling date:', textDate)
   addTitle(weighSheetWS, rowIndex = 1, title = titleText,
            titleStyle = titleStyle)
