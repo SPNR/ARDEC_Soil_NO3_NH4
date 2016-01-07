@@ -1,17 +1,16 @@
-################################################################################
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #
-# Assign lab numbers to soil samples from a specific study, and create a 
-# weigh sheet for nitrate/ammonium analysis
+# Assign soil lab numbers to a study, and create a soil weigh sheet for soil N
 #
-################################################################################
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 # This function creates a printable weigh sheet
-labSheet <- function() {
+createWeighSheet <- function() {
   
   # Prompt user for weigh sheet details
   cat('Choose a study:\n')
   cat('\n\t1. Rotation 1\n\t2. Rotation 2\n\t3. Rotation 3\n\t4. Rotation 4')
-  cat('\n\t5. Rotation 5\n\t6. Strip Till\n\t7. DMP')
+  cat('\n\t5. Rotation 5\n\t6. Strip Till\n\t7. DMP\n\t8. 200/300B\n\t9. 300A')
   stNum <- readline('\n\     ? ')
   st <- NA_character_
   if(stNum == '1') st <- 'Rotation 1'
@@ -21,13 +20,15 @@ labSheet <- function() {
   if(stNum == '5') st <- 'Rotation 5'
   if(stNum == '6') st <- 'Strip Till'
   if(stNum == '7') st <- 'DMP'
+  if(stNum == '8') st <- '200/300B'
+  if(stNum == '9') st <- '300A'
   if(is.na(st)) fatalError('Invalid selection')
   
   # Initialize plot suffix as NA
   pltsfx <- NA_character_
   
   # Prompt user for E or W suffix if applicable
-  if(stNum == '1' | stNum == '2' | stNum == '5') {
+  if(stNum == '1' | stNum == '2' | stNum == '5' | stNum == '300A') {
     cat('\nChoose a suffix:\n')
     cat('\n\t1. East\n\t2. West')
     pltsfxNum <- readline('\n     ? ')
@@ -79,10 +80,10 @@ labSheet <- function() {
     season <- 'Spring'
   } else if(month >= 6 & month <= 8) {
     season <- 'Summer'
-  } else if(month >= 9 & month <= 11) {
+  } else if(month >= 9 & month <= 12) {  #Fall sampling can occur in December
     season <- 'Fall'
-  } else {
-    season <- 'Winter'
+#   } else {
+#     season <- 'Winter'
   }
   
   # Prompt user for starting lab number
@@ -115,8 +116,7 @@ labSheet <- function() {
                               stringsAsFactors = FALSE)
   
   # Open existing data file
-  dataFileName <- paste('ARDEC_Soil_N_', as.character(year), '_test',
-                        sep = '')
+  dataFileName <- paste('ARDEC_Soil_N_', as.character(year), sep = '')
   defaultDataFile <- paste(path, dataFileName, fileExt, sep = '')
   colClassSheet <- read.xlsx2(defaultDataFile, sheetIndex = 2,
                            stringsAsFactors = FALSE)
@@ -162,15 +162,15 @@ labSheet <- function() {
     weighSheet$depthBottom <- 12
   }
   # Check for duplicate sampling events
-  dupCheckSub <- subset(dataSheet, study == st)
+#   dupCheckSub <- subset(dataSheet, study == st)
   if(!is.na(pltsfx) & st != 'DMP') dupCheckSub <- subset(dupCheckSub,
                                                          plotSuffix = pltsfx)
-  # If either sampDay or sampMonth exists then throw an error
-  if(!is.na(dupCheckSub[1, 'sampDay']) | !is.na(dupCheckSub[1, 'sampMonth'])) {
+  if(dupCheckSub[1, 'sampDay'] == day & dupCheckSub[1, 'sampMonth'] == month &
+       dupCheckSub[1, 'sampYear'] == year) {
     fatalError(paste('Duplicate sampling event exists on', textDate,
-                     'for specified study.'))
+                       'for specified study.'))
   }
-
+  
   # If startNum is not specified by the user then identify the largest existing
   # lab number in excelDataSheet, and start the new lab numbers after it.
   if(is.na(startNum)) {
@@ -210,15 +210,6 @@ labSheet <- function() {
   weighSheet$sampMonth <- month
   weighSheet$sampYear <- year
   
-  # Delete original rows from datasheet for current plot and suffix because
-  # they will have no lab numbers
-  if(is.na(pltsfx)) {
-    dataSheet <- filter(dataSheet, study != st & is.na(labNum))
-  } else {
-    dataSheet <- filter(dataSheet, !(study == st & plotSuffix == pltsfx) &
-                          is.na(labNum))
-  }
-  
   # Package dplyr provides the bind_rows function
   library(dplyr)
   # Append weighSheet to dataSheet, inserting NAs where columns don't match
@@ -247,12 +238,12 @@ labSheet <- function() {
   
   # Create weigh file name
   if(is.na(pltsfx)) pltsfx <- ''
-  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, '', pltsfx,
+  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, ,' ', pltsfx,
                          ' soil weigh sheet.xlsx', sep = '')
   # Create a workbook for the weigh sheet
   weighSheetWB <- createWorkbook()
   # Create a worksheet
-  weighSheetWS <- createSheet(weighSheetWB, sheetName = 'Weigh Sheet')
+  weighSheetWS <- createSheet(weighSheetWB, sheetName = 'Weigh_Sheet')
   # Define cell styles for weigh sheet workbook
   titleStyle <- CellStyle(weighSheetWB) +
     Font(weighSheetWB, heightInPoints=14, isBold=TRUE)
@@ -266,7 +257,7 @@ labSheet <- function() {
   
   # This function formats the worksheet's title and subtitle
   addTitle <- function(sheet, rowIndex, title, titleStyle) {
-    rows <- createRow(sheet, rowIndex = rowIndex)  # createRow is from xlsx
+    rows <- createRow(sheet, rowIndex = rowIndex)
     sheetTitle <- createCell(rows, colIndex = 1)
     setCellValue(sheetTitle[[1,1]], title)
     setCellStyle(sheetTitle[[1,1]], titleStyle)
@@ -291,7 +282,7 @@ labSheet <- function() {
   saveWorkbook(weighSheetWB, weighFileName)
   
   # Output status message
-  cat('\n\n...updating ARDEC soil data file...')
+  cat('\n\n...updating soil file...')
   
   # Create new soil file name
   filename <- paste(path, dataFileName, fileExt, sep = '')
