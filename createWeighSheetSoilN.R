@@ -221,8 +221,8 @@ createWeighSheet <- function() {
   names(weighSheet)[names(weighSheet) == 'rep'] <- 'Rep'
   names(weighSheet)[names(weighSheet) == 'plotNumber'] <- 'Plot'
   names(weighSheet)[names(weighSheet) == 'plotSuffix'] <- 'Suffix'
-  names(weighSheet)[names(weighSheet) == 'depthTop'] <- 'From'
-  names(weighSheet)[names(weighSheet) == 'depthBottom'] <- 'To'
+  names(weighSheet)[names(weighSheet) == 'depthTop_in'] <- 'From'
+  names(weighSheet)[names(weighSheet) == 'depthBottom_in'] <- 'To'
   
   # If no plot suffix is present in weighSheet then remove that column.  Also,
   # arrange columns specifically in this order:
@@ -231,15 +231,15 @@ createWeighSheet <- function() {
   } else {keepCols <- c('Trt', 'Rep', 'Plot', 'Suffix', 'From', 'To', 'LabNum')
   }
   # Specify columns to keep in weighSheet
-  weighSheet <- weighSheet[keepCols]
+  weighSheet <- weighSheet[, keepCols]
   
   # Output status message
   cat('\n\n...saving weigh sheet...')
   
   # Create weigh file name
   if(is.na(pltsfx)) pltsfx <- ''
-  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, ,' ', pltsfx,
-                         ' soil weigh sheet.xlsx', sep = '')
+  weighFileName <- paste(path, season, ' ', year, ' ARDEC ', st, ' ', pltsfx,
+                         ' soil NO3 NH4 weigh sheet.xlsx', sep = '')
   # Create a workbook for the weigh sheet
   weighSheetWB <- createWorkbook()
   # Create a worksheet
